@@ -1,0 +1,14 @@
+# Private benchmark data — contains code snapshots, file paths and commit
+# history harvested from private repositories. Never commit these.
+tasks/
+results/
+report/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local databases / scratch
+*.db
+*.sqlite

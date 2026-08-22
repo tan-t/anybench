@@ -1,0 +1,70 @@
+# anybench
+
+**Your own SWE-bench, harvested from your own dev sessions.**
+
+anybench turns your real development work — the prompt you gave a coding agent, the fix you shipped, the environment it ran in — into private, replayable benchmark tasks. It then replays each task across multiple agent harnesses (Claude Code, Codex CLI, opencode, …) and models, and scores every candidate patch against your own human-verified fix.
+
+> Status: early prototype (Phase 0 spike complete). One real task harvested and replayed across 3 harnesses × 3 model families × reasoning-effort levels. See [`PLAN.md`](PLAN.md) (Japanese) for the full research-backed design.
+
+![dashboard](docs/images/dashboard.png)
+
+## Why
+
+- **Zero contamination** — public benchmarks rot as models memorize gold patches (SWE-bench Verified was retired for exactly this). Tasks harvested from your private sessions are fresh by construction.
+- **Real bug distribution** — synthetically injected bugs differ measurably from real ones (BugPilot). Your own fixes are, by definition, real.
+- **The environment is captured alive** — automated environment reconstruction is the hardest part of task generation (31–50% success rates in the wild). Snapshotting the repo at the moment you fixed it sidesteps the problem entirely.
+
+The concept was proven at organizational scale by Meta's REAP / ProdCodeBench (arXiv:2604.01527), but no personal, open-source implementation existed. anybench is that missing piece: *a harvesting front-end for standard task formats, plus hybrid evaluation and a local-first report.*
+
+## How it works
+
+```
+[capture]              [harvest]               [replay]              [evaluate]           [view]
+Claude Code hooks  →  session × git pairing → SWE-bench-style task → tests (F2P/P2P)   →  runs.jsonl
+Codex rollouts        prompt extraction       purified workspace     + reference-guided    → static
+opencode logs         gold verification       agents × models        LLM judge             HTML report
+```
+
+- **Task format**: SWE-bench schema (`base_commit`, gold `patch`, `test_patch`, `FAIL_TO_PASS` / `PASS_TO_PASS`) + a Harbor-style task directory (`instruction.md`, `environment/Dockerfile`, `solution/solve.sh`, `tests/test.sh` → reward file). No new formats invented.
+- **Gold verification**: a task enters the bench only after P2P green @ base → F2P red @ test_patch → all green @ gold patch, repeated to exclude flakes, inside Docker (oracle reward 1.0 / no-op reward 0.0).
+- **Replay**: each run gets a purified workspace (fresh single-commit repo, agent config files removed, scoped tool permissions). Harness version, model ID, sandbox mode and token/cost usage are recorded on every run.
+- **Evaluation, layered**: deterministic tests first (tests always beat the judge — F2P fail forces correctness to 0), then a reference-guided 6-dimension rubric judge (0–3 anchored scales, position-swap ×2, min aggregation, judge model ≠ candidate model, judge/prompt versions stamped into every record).
+- **Report**: `scripts/generate_report.py` reads `results/runs.jsonl` and emits a single-file HTML leaderboard grouped by *harness × model family × reasoning effort*, with Chart.js panels for judge score, per-dimension radar, wall time, and cost.
+
+## What the spike found (1 task, 9 runs)
+
+| harness | model | tests | judge | time | cost |
+|---|---|---|---|---|---|
+| claude-code | fable (+sonnet subagent) | ✅ | 1.00 | 262s | $3.36 |
+| claude-code | sonnet (default effort) | ✅ | 0.97 | 190s | $0.69 |
+| claude-code | opus / fable | ✅ | 0.97 | 171–234s | $1.83–2.65 |
+| claude-code | sonnet (low / high effort) | ✅ | 0.93 | 154–185s | ~$0.78 |
+| codex | gpt-5.5 | ✅ | 0.90 | 178s | (subscription) |
+| claude-code | haiku 4.5 | ❌ P2P fail | 0.43 | 230s | $0.46 |
+| opencode | qwen3.5:9b (local) | ❌ F2P fail | 0.13 | 903s | $0.00 |
+
+Highlights: the harvested task discriminated cleanly (a mid-tier model passed the headline tests but broke a subtle sharing invariant that P2P caught; a local 9B model patched an unreachable code path); the judge's rationales matched test outcomes on all 9 candidates while surfacing real quality gaps (dead code, DRY violations, drift-prone predicate duplication) that tests alone missed.
+
+## Repository layout
+
+```
+PLAN.md               development plan (Japanese)
+docs/research/        landscape research: benchmark OSS, LLM-as-judge, dashboards (Japanese)
+judge/                reference-guided judge prompt + aggregation rules (v0.1)
+scripts/
+  record_run.py       append a run record (metrics + tests + judge) to results/runs.jsonl
+  generate_report.py  render the static HTML leaderboard from runs.jsonl
+tasks/    (local only, gitignored)  harvested tasks — contain snapshots of your private code
+results/  (local only, gitignored)  run records, judgments, candidate diffs
+report/   (local only, gitignored)  generated report
+```
+
+`tasks/`, `results/` and `report/` are **deliberately untracked**: they embed code, file paths and commit history from the private repositories you harvest. anybench is private-by-default; sharing task packs will be an explicit opt-in feature.
+
+## Roadmap
+
+Phase 1 turns the manual spike into commands: `anybench capture` (Claude Code hooks installer), `anybench harvest` (interactive task synthesis + gold verification), `anybench run` (Harbor-backed multi-harness replay), `anybench eval`, `anybench report`. See `PLAN.md` for the full phased plan, risks, and success metrics.
+
+## License
+
+MIT
