@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Verifier: エージェントの修正後に実行される。/logs/verifier/reward.txt に 0.0/1.0 を書く。
+set -u
+mkdir -p /logs/verifier
+cd /app
+
+# エージェントによるテスト改変は破棄してから公式 test_patch を適用(SWE-bench 慣行)
+git checkout -- {{test_dir}} 2>/dev/null
+if ! git apply "$(dirname "$0")/test_patch.diff"; then
+  echo "0.0" > /logs/verifier/reward.txt
+  echo "test_patch failed to apply" >&2
+  exit 0
+fi
+
+# FAIL_TO_PASS(収穫時に実測した失敗テストIDに置き換える)
+{{test_runner}} {{fail_to_pass_ids}}
+f2p=$?
+
+# PASS_TO_PASS(フルスイート)
+{{test_runner_full}}
+p2p=$?
+
+if [ "$f2p" -eq 0 ] && [ "$p2p" -eq 0 ]; then
+  echo "1.0" > /logs/verifier/reward.txt
+else
+  echo "0.0" > /logs/verifier/reward.txt
+fi
+echo "f2p=$f2p p2p=$p2p" >&2

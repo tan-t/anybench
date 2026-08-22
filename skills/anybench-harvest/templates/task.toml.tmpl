@@ -1,0 +1,23 @@
+version = "1.0"
+
+[metadata]
+id = "{{instance_id}}"
+created_at = "{{today}}"
+origin_repo = "{{repo}}"
+base_commit = "{{base_commit}}"
+gold_commit = "{{gold_commit}}"
+origin_session = "{{harness}}:{{session_id}}"
+authorship = "{{human_authored|human_edited|ai_authored}}"
+languages = ["{{lang}}"]
+tags = []
+
+[agent]
+timeout_sec = 1800
+
+[verifier]
+timeout_sec = 600
+
+[environment]
+cpus = 2
+memory = "4G"
+network_mode = "none"

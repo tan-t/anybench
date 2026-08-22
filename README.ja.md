@@ -47,13 +47,36 @@ opencode logs         ゴールド検証             agents × models        LLM
 
 ハイライト: 収穫したタスクは綺麗に識別力を発揮した(中位モデルは表面的なテストを通したが、微妙な共有不変条件を壊して P2P が検出。ローカル 9B モデルは到達不能なコードパスにパッチを当てた)。ジャッジの判定根拠は9候補すべてでテスト結果と矛盾せず、テストだけでは見えない品質差(デッドコード、DRY 違反、ドリフトしやすい条件複製)まで具体的に指摘した。
 
+## Claude Code 用の収穫スキル
+
+`skills/anybench-harvest/` は、収穫手順を [Claude Code スキル](https://code.claude.com/docs)としてパッケージしたものです。コーディングセッションの締め — 修正をコミットした直後 — に手動で呼び出すと、そのコミットを検証済みの anybench タスクに変換します:
+
+```bash
+# グローバルにインストール(すべてのリポジトリで利用可)
+./scripts/install-skill.sh --global
+
+# または特定のリポジトリにインストール
+./scripts/install-skill.sh /path/to/your/repo
+```
+
+インストール後、Claude Code 上で:
+
+```
+/anybench-harvest            # HEAD を収穫
+/anybench-harvest <commit>   # 特定のコミットを収穫
+```
+
+スキルはコミットを gold / test パッチに分離し、ゴールド検証プロトコル一式(base で P2P 緑 → test_patch で F2P 赤 → gold で全緑、フレーク排除のため×3)を実行し、解法をリークしない問題文を起草して**あなたの承認を求め**、Harbor 形式のタスクディレクトリを `$ANYBENCH_HOME/tasks/` に梱包し、Docker で検証します(無修正 reward 0.0 / oracle reward 1.0)。検証に失敗したタスクは登録されません。元修正が人間製か AI 製かも確認するので、後から自己一貫性バイアスをフラグできます。
+
 ## リポジトリ構成
 
 ```
 PLAN.md               開発計画
 docs/research/        リサーチ: ベンチマークOSS・LLM-as-judge・ダッシュボード
 judge/                reference-guided ジャッジプロンプト + 集約規則 (v0.1)
+skills/anybench-harvest/  Claude Code スキル: 直近の修正コミットをタスクとして収穫
 scripts/
+  install-skill.sh    収穫スキルをグローバル/リポジトリ単位でインストール
   record_run.py       ラン記録(メトリクス + テスト + ジャッジ)を results/runs.jsonl に追記
   generate_report.py  runs.jsonl から静的HTMLリーダーボードを生成
 tasks/    (ローカル専用・gitignore)  収穫タスク — プライベートコードのスナップショットを含む

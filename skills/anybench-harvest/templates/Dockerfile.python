@@ -1,0 +1,19 @@
+# anybench task image (Python) — 依存はビルド時に固めて実行時 network none で回す
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends git patch \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY repo.tar.gz /tmp/repo.tar.gz
+RUN tar -xzf /tmp/repo.tar.gz -C /app && rm /tmp/repo.tar.gz \
+    && chown -R root:root /app \
+    && git config --global --add safe.directory /app
+
+# リポジトリの依存導入コマンドに置き換える(例: pip install -r api/requirements.txt)
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 浄化: 履歴1コミットの新規リポジトリとして再構成(git log 経由のカンニング防止)
+RUN git init \
+    && git add -A \
+    && git -c user.email=bench@anybench -c user.name=anybench commit -qm "initial snapshot"

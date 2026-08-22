@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Oracle: ゴールドパッチ(人間検証済みの実修正、テスト変更除く)を適用する。
+set -eu
+cd /app
+git apply "$(dirname "$0")/gold_patch.diff"

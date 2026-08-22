@@ -47,13 +47,36 @@ opencode logs         gold verification       agents × models        LLM judge 
 
 Highlights: the harvested task discriminated cleanly (a mid-tier model passed the headline tests but broke a subtle sharing invariant that P2P caught; a local 9B model patched an unreachable code path); the judge's rationales matched test outcomes on all 9 candidates while surfacing real quality gaps (dead code, DRY violations, drift-prone predicate duplication) that tests alone missed.
 
+## Harvest skill for Claude Code
+
+`skills/anybench-harvest/` packages the harvesting procedure as a [Claude Code skill](https://code.claude.com/docs). Invoke it manually at the end of a coding session — right after you commit a fix — and it turns that commit into a verified anybench task:
+
+```bash
+# install globally (available in every repository)
+./scripts/install-skill.sh --global
+
+# or install into a single repository
+./scripts/install-skill.sh /path/to/your/repo
+```
+
+Then, inside Claude Code:
+
+```
+/anybench-harvest            # harvest HEAD
+/anybench-harvest <commit>   # harvest a specific commit
+```
+
+The skill splits the commit into gold/test patches, runs the full gold-verification protocol (P2P green @ base → F2P red @ test_patch → all green @ gold, ×3 for flakes), drafts a leak-free problem statement **for your approval**, packages the Harbor-style task directory under `$ANYBENCH_HOME/tasks/`, and validates it in Docker (no-op reward 0.0 / oracle reward 1.0). Tasks that fail verification are never registered. It also asks whether the original fix was human- or AI-authored, so self-consistency bias can be flagged later.
+
 ## Repository layout
 
 ```
 PLAN.md               development plan (Japanese)
 docs/research/        landscape research: benchmark OSS, LLM-as-judge, dashboards (Japanese)
 judge/                reference-guided judge prompt + aggregation rules (v0.1)
+skills/anybench-harvest/  Claude Code skill: harvest the latest fix commit into a task
 scripts/
+  install-skill.sh    install the harvest skill globally or into a repo
   record_run.py       append a run record (metrics + tests + judge) to results/runs.jsonl
   generate_report.py  render the static HTML leaderboard from runs.jsonl
 tasks/    (local only, gitignored)  harvested tasks — contain snapshots of your private code
