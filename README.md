@@ -1,5 +1,7 @@
 # anybench
 
+**English** | [日本語](README.ja.md)
+
 **Your own SWE-bench, harvested from your own dev sessions.**
 
 anybench turns your real development work — the prompt you gave a coding agent, the fix you shipped, the environment it ran in — into private, replayable benchmark tasks. It then replays each task across multiple agent harnesses (Claude Code, Codex CLI, opencode, …) and models, and scores every candidate patch against your own human-verified fix.
@@ -64,6 +66,33 @@ report/   (local only, gitignored)  generated report
 ## Roadmap
 
 Phase 1 turns the manual spike into commands: `anybench capture` (Claude Code hooks installer), `anybench harvest` (interactive task synthesis + gold verification), `anybench run` (Harbor-backed multi-harness replay), `anybench eval`, `anybench report`. See `PLAN.md` for the full phased plan, risks, and success metrics.
+
+## References
+
+The design borrows deliberately from prior art. Detailed notes live in [`docs/research/`](docs/research/) (Japanese).
+
+**Papers**
+
+- REAP / ProdCodeBench — harvesting benchmarks from real developer×agent sessions at org scale (Meta): [arXiv:2604.01527](https://arxiv.org/abs/2604.01527)
+- SWE-bench — the canonical task schema and Docker evaluation harness: [arXiv:2310.06770](https://arxiv.org/abs/2310.06770) · [Why OpenAI retired SWE-bench Verified](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/) (contamination)
+- BugPilot — synthetically injected bugs differ from real ones: [arXiv:2510.19898](https://arxiv.org/abs/2510.19898)
+- SWT-Bench — generating reproduction tests validated against the gold patch: [arXiv:2406.12952](https://arxiv.org/abs/2406.12952)
+- PatchDiff — "resolved" ≠ correct: 29.6% of plausible patches diverge behaviorally from ground truth (ICSE 2026): [arXiv:2503.15223](https://arxiv.org/abs/2503.15223)
+- Agent-as-a-Judge — judges with repo-reading tools reach ~90% human agreement (ICML 2025): [OpenReview](https://openreview.net/forum?id=Nn9POI9Ekt)
+- Agentic Rubrics — rubric checks catch real defects in test-passing patches: [arXiv:2601.04171](https://arxiv.org/abs/2601.04171)
+- SWE Atlas — per-task rubrics drafted from issue + gold patch: [arXiv:2605.08366](https://arxiv.org/abs/2605.08366)
+- CodeJudgeBench — pairwise > pointwise for code judging; position bias is real: [arXiv:2507.10535](https://arxiv.org/abs/2507.10535)
+- A Survey on LLM-as-a-Judge — bias taxonomy and mitigations: [arXiv:2411.15594](https://arxiv.org/abs/2411.15594)
+- Stop Comparing LLM Agents Without Disclosing the Harness — harness settings explain more variance than model choice: [arXiv:2605.23950](https://arxiv.org/abs/2605.23950)
+
+**OSS & frameworks**
+
+- [Harbor](https://github.com/harbor-framework/harbor) (terminal-bench successor) — task directory format, ~50 installed-agent adapters, ATIF trajectory format
+- [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) — `sandbox_agent_bridge` model proxy, `eval_set` resume design, static log-viewer bundles
+- [SWE-bench](https://github.com/SWE-bench/SWE-bench) / [SWE-rebench](https://huggingface.co/datasets/nebius/SWE-rebench) / [SWE-bench-Live](https://github.com/microsoft/SWE-bench-Live) — schema extensions (`install_config`, frozen requirements) and RepoLaunch environment capture
+- [promptfoo](https://github.com/promptfoo/promptfoo) — matrix web viewer + SQLite storage pattern
+- [HAL](https://hal.cs.princeton.edu/about) — cost-controlled leaderboards with Pareto frontiers
+- [Hamel Husain, *Creating a LLM-as-a-Judge*](https://hamel.dev/blog/posts/llm-judge/) — critique-shadowing calibration against your own labels
 
 ## License
 
