@@ -66,6 +66,8 @@ Then, inside Claude Code:
 /anybench-harvest <commit>   # harvest a specific commit
 ```
 
+Session sources are supported across harnesses: the skill locates the originating session in **Claude Code** (`~/.claude/projects/` JSONL), **Codex** (`~/.codex/state_5.sqlite` threads index → rollout JSONL), or **opencode** (`~/.local/share/opencode/opencode.db`) to recover the original prompt and stamp `origin_session`.
+
 The skill splits the commit into gold/test patches, runs the full gold-verification protocol (P2P green @ base → F2P red @ test_patch → all green @ gold, ×3 for flakes), drafts a leak-free problem statement **for your approval**, packages the Harbor-style task directory under `$ANYBENCH_HOME/tasks/`, and validates it in Docker (no-op reward 0.0 / oracle reward 1.0). Tasks that fail verification are never registered. It also asks whether the original fix was human- or AI-authored, so self-consistency bias can be flagged later.
 
 ## Repository layout
