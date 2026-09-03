@@ -55,9 +55,11 @@ chart_data = {
 
 def esc(s): return html.escape(str(s))
 
-def fmt_cost(c):
+def fmt_cost(c, est=False):
     if c is None: return "&mdash;"
-    return "$0.00 <span class=note>(local)</span>" if c == 0 else f"${c:.2f}"
+    if c == 0: return "$0.00 <span class=note>(local)</span>"
+    note = " <span class=note>(est.)</span>" if est else ""
+    return f"${c:.2f}{note}"
 
 def status_cell(r):
     ok = r["tests"]["reward"] >= 1.0
@@ -68,7 +70,8 @@ def status_cell(r):
 best_judge = max((r.get("judge") or {}).get("weighted_score") or -1 for r in runs)
 passed_runs = [r for r in runs if r["tests"]["reward"] >= 1.0]
 best_time = min((r["run"]["duration_s"] for r in passed_runs), default=None)
-best_cost = min((r["run"].get("cost_usd") for r in passed_runs if r["run"].get("cost_usd") is not None), default=None)
+best_cost = min((r["run"].get("cost_usd") for r in passed_runs
+                 if r["run"].get("cost_usd") is not None and not r["run"].get("cost_estimated")), default=None)
 
 rows = []
 prev_group = None
@@ -85,8 +88,9 @@ for i, r in enumerate(runs):
     t = r["run"]["duration_s"]
     tcell = f'<b>{t:.0f}s</b> <span class="best">&#9650;</span>' if best_time is not None and t == best_time else f'{t:.0f}s'
     c = r["run"].get("cost_usd")
-    ccell = (f'<b>{fmt_cost(c)}</b> <span class="best">&#9650;</span>' if best_cost is not None and c == best_cost and r["tests"]["reward"] >= 1.0
-             else fmt_cost(c))
+    cest = bool(r["run"].get("cost_estimated"))
+    ccell = (f'<b>{fmt_cost(c, cest)}</b> <span class="best">&#9650;</span>' if best_cost is not None and c == best_cost and not cest and r["tests"]["reward"] >= 1.0
+             else fmt_cost(c, cest))
     rows.append(f"""
 <tr class="result-row">
   <td class="mono indent">{esc(r.get("label") or r["model"])}</td>
@@ -198,7 +202,7 @@ td.indent {{ padding-left: 22px; }}
   <div class="chart-panel"><h2>judge score</h2><p class="sub">重み付き6次元 (0&ndash;1) &middot; バー上のラベル = tests 判定</p><div class="cv"><canvas id="c-judge"></canvas></div></div>
   <div class="chart-panel"><h2>judge dimensions</h2><p class="sub">6次元 &times; 0&ndash;3 (3 = 参照と同等以上)</p><div class="cv"><canvas id="c-radar"></canvas></div></div>
   <div class="chart-panel"><h2>time</h2><p class="sub">wall clock (秒) &middot; 短いほど良い</p><div class="cv"><canvas id="c-time"></canvas></div></div>
-  <div class="chart-panel"><h2>cost</h2><p class="sub">USD / run &middot; ローカルモデルは $0</p><div class="cv"><canvas id="c-cost"></canvas></div></div>
+  <div class="chart-panel"><h2>cost</h2><p class="sub">USD / run &middot; ローカルモデルは $0 &middot; (est.)=トークン数×API単価の推計</p><div class="cv"><canvas id="c-cost"></canvas></div></div>
 </div>
 <script>
 (function () {{
