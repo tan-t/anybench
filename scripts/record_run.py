@@ -36,7 +36,7 @@ rec = {
     "harness": {"name": a.harness, "version": a.harness_version or subprocess.run(["claude", "--version"], capture_output=True, text=True).stdout.strip()},
     "model": a.model,
     "label": a.label or a.model,
-    "model_family": ("claude" if "claude" in a.model.lower() else "qwen" if "qwen" in a.model.lower() else "gpt" if "gpt" in a.model.lower() else a.model.split("/")[0]),
+    "model_family": ("claude" if "claude" in a.model.lower() else "qwen" if "qwen" in a.model.lower() else "gemini" if "gemini" in a.model.lower() else "gpt" if "gpt" in a.model.lower() else a.model.split("/")[0]),
     "effort": a.effort,
     "recorded_at": datetime.datetime.now().isoformat(timespec="seconds"),
     "run": {

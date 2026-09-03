@@ -33,8 +33,9 @@ git show --name-status --format='%H%n%P%n%s' <commit>
 | **Claude Code** | ディレクトリ名がパスエンコードされた `~/.claude/projects/<encoded-cwd>/` | 同ディレクトリの `<session-id>.jsonl`(各行に `cwd`・`timestamp`・`message`) |
 | **Codex** | `~/.codex/state_5.sqlite` の `threads` テーブル(`id, rollout_path, cwd, title, created_at, updated_at`) | `rollout_path` が指す `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`(1行目 `session_meta`、以降 `response_item` 等。巨大化しうるのでストリームで読む) |
 | **opencode** | `~/.local/share/opencode/opencode.db` の `project(worktree)` → `session` | 同DBの `message` / `part` テーブル(`data` に JSON) |
+| **agy** (Google Antigravity CLI) | `~/.gemini/antigravity-cli/conversation_summaries.db` の `conversation_summaries`(`conversation_id, title, preview, workspace_uris, last_modified_time, raw_summary`) | `~/.gemini/antigravity-cli/conversations/<conversation_id>.db`(`steps` テーブル。metadata は protobuf バイナリなので、プロンプト素材にはインデックス側の `title` / `preview` / `raw_summary` を優先して使う) |
 
-手順: まず Codex は `SELECT id, rollout_path, title FROM threads WHERE cwd = '<リポジトリパス>' ORDER BY updated_at DESC`、opencode は `project.worktree` で絞り込み、Claude Code はエンコード済みパスのディレクトリを直接引く。コミット時刻(`git show -s --format=%ci`)と重なる時間帯のセッションを候補とし、複数あればタイトル/冒頭プロンプトを提示してユーザーに選んでもらう。**特定できなくても収穫は続行できる**(problem_statement はコミットメッセージ・issue から起草し、`origin_session` は `"unknown"` とする)。
+手順: まず Codex は `SELECT id, rollout_path, title FROM threads WHERE cwd = '<リポジトリパス>' ORDER BY updated_at DESC`、opencode は `project.worktree`、agy は `workspace_uris LIKE '%<リポジトリパス>%'` で絞り込み、Claude Code はエンコード済みパスのディレクトリを直接引く。コミット時刻(`git show -s --format=%ci`)と重なる時間帯のセッションを候補とし、複数あればタイトル/冒頭プロンプトを提示してユーザーに選んでもらう。**特定できなくても収穫は続行できる**(problem_statement はコミットメッセージ・issue から起草し、`origin_session` は `"unknown"` とする)。
 
 セッション由来の秘密情報(APIキー・トークン等がプロンプトに含まれていた場合)は problem_statement に転記しないこと。
 

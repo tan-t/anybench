@@ -66,7 +66,7 @@ opencode logs         ゴールド検証             agents × models        LLM
 /anybench-harvest <commit>   # 特定のコミットを収穫
 ```
 
-セッションソースはハーネス横断で対応しています: **Claude Code**(`~/.claude/projects/` の JSONL)、**Codex**(`~/.codex/state_5.sqlite` の threads インデックス → rollout JSONL)、**opencode**(`~/.local/share/opencode/opencode.db`)から元セッションを特定し、当時のプロンプトの回収と `origin_session` の記録を行います。
+セッションソースはハーネス横断で対応しています: **Claude Code**(`~/.claude/projects/` の JSONL)、**Codex**(`~/.codex/state_5.sqlite` の threads インデックス → rollout JSONL)、**opencode**(`~/.local/share/opencode/opencode.db`)、**agy / Google Antigravity CLI**(`~/.gemini/antigravity-cli/conversation_summaries.db` → 会話ごとの SQLite)から元セッションを特定し、当時のプロンプトの回収と `origin_session` の記録を行います。
 
 スキルはコミットを gold / test パッチに分離し、ゴールド検証プロトコル一式(base で P2P 緑 → test_patch で F2P 赤 → gold で全緑、フレーク排除のため×3)を実行し、解法をリークしない問題文を起草して**あなたの承認を求め**、Harbor 形式のタスクディレクトリを `$ANYBENCH_HOME/tasks/` に梱包し、Docker で検証します(無修正 reward 0.0 / oracle reward 1.0)。検証に失敗したタスクは登録されません。元修正が人間製か AI 製かも確認するので、後から自己一貫性バイアスをフラグできます。
 
