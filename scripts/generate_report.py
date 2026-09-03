@@ -10,9 +10,15 @@ VERSION = "0.1.0.dev0"
 p = argparse.ArgumentParser()
 p.add_argument("--runs", default=os.path.join(os.path.dirname(__file__), "..", "results", "runs.jsonl"))
 p.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "report", "index.html"))
+p.add_argument("--exclude", default="", help='comma-separated substrings matched against "harness/model"; matching runs are dropped (also honors "excluded": true in the record)')
 a = p.parse_args()
 
 runs = [json.loads(l) for l in open(a.runs) if l.strip()]
+excl_pats = [s.strip() for s in a.exclude.split(",") if s.strip()]
+def _excluded(r):
+    return bool(r.get("excluded")) or any(pat in f'{r["harness"]["name"]}/{r["model"]}' for pat in excl_pats)
+n_excluded = sum(1 for r in runs if _excluded(r))
+runs = [r for r in runs if not _excluded(r)]
 
 # ハーネス × モデルファミリー × effort でソート・グルーピング
 EFFORT_ORDER = {"low": 0, "medium": 1, "default": 2, None: 2, "high": 3, "xhigh": 4, "max": 5}
@@ -72,6 +78,41 @@ passed_runs = [r for r in runs if r["tests"]["reward"] >= 1.0]
 best_time = min((r["run"]["duration_s"] for r in passed_runs), default=None)
 best_cost = min((r["run"].get("cost_usd") for r in passed_runs
                  if r["run"].get("cost_usd") is not None and not r["run"].get("cost_estimated")), default=None)
+
+# ファーストビュー: judge スコア降順の横棒リーダーボード + サマリーチップ
+def run_name(r):
+    return f'{r["harness"]["name"]} · {r.get("label") or r["model"]}'
+
+def cost_plain(r):
+    c = r["run"].get("cost_usd")
+    if c is None: return "cost —"
+    if c == 0: return "$0 (local)"
+    return f"${c:.2f}" + (" est." if r["run"].get("cost_estimated") else "")
+
+hero_runs = sorted(runs, key=lambda r: (-float((r.get("judge") or {}).get("weighted_score") or 0), r["run"]["duration_s"]))
+hero_data = {
+    "labels": [run_name(r) for r in hero_runs],
+    "judge": [(r.get("judge") or {}).get("weighted_score") or 0 for r in hero_runs],
+    "passed": [r["tests"]["reward"] >= 1.0 for r in hero_runs],
+    "ann": [("" if r["tests"]["reward"] >= 1.0 else "FAIL · ")
+            + f'{(r.get("judge") or {}).get("weighted_score") or 0:.2f} · {r["run"]["duration_s"]:.0f}s · {cost_plain(r)}'
+            for r in hero_runs],
+}
+hero_h = 30 * len(hero_runs) + 50
+
+def chip(icon, label, value):
+    return f'<span class="chip">{icon} {esc(label)} <b>{value}</b></span>'
+
+chips = [chip("", "pass rate", f'{n_pass}/{len(runs)} ({n_pass/max(len(runs),1)*100:.0f}%)')]
+if hero_runs:
+    top = hero_runs[0]
+    chips.append(chip("&#127942;", "best quality", f'{esc(run_name(top))} {(top.get("judge") or {}).get("weighted_score"):.2f}'))
+fastest = next((r for r in passed_runs if r["run"]["duration_s"] == best_time), None)
+if fastest:
+    chips.append(chip("&#9889;", "fastest pass", f'{esc(run_name(fastest))} {best_time:.0f}s'))
+cheapest = next((r for r in passed_runs if r["run"].get("cost_usd") == best_cost and not r["run"].get("cost_estimated")), None)
+if cheapest and best_cost is not None:
+    chips.append(chip("&#128176;", "cheapest pass", f'{esc(run_name(cheapest))} ${best_cost:.2f}'))
 
 rows = []
 prev_group = None
@@ -170,6 +211,15 @@ tr.group-row td {{ background: #f6f8fa; font-size: 12px; padding: 5px 10px; bord
 tr.group-row b {{ color: #24292f; }}
 td.indent {{ padding-left: 22px; }}
 .best {{ color: #1a7f37; font-size: 9px; }}
+.hero {{ background: #fff; border: 1px solid #d0d7de; border-radius: 4px; padding: 14px 16px 10px; margin-bottom: 16px; }}
+.hero h2 {{ font-size: 13px; font-weight: 600; margin: 0 0 10px; font-family: ui-monospace, Menlo, Consolas, monospace; }}
+.hero h2 span {{ font-weight: 400; color: #57606a; }}
+.chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }}
+.chip {{ font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; padding: 3px 10px; border: 1px solid #d0d7de; border-radius: 999px; background: #f6f8fa; color: #57606a; white-space: nowrap; }}
+.chip b {{ color: #24292f; font-weight: 600; }}
+.hero-cv {{ position: relative; }}
+@media (prefers-color-scheme: dark) {{ .hero {{ background: #1d2125; border-color: #333a41; }} .hero h2 span {{ color: #768390; }}
+  .chip {{ background: #22272c; border-color: #333a41; color: #768390; }} .chip b {{ color: #d0d7de; }} }}
 .charts-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 12px; margin-bottom: 16px; }}
 .chart-panel {{ background: #fff; border: 1px solid #d0d7de; border-radius: 4px; padding: 12px 14px 8px; }}
 .chart-panel h2 {{ font-size: 12px; font-weight: 600; margin: 0 0 2px; font-family: ui-monospace, Menlo, Consolas, monospace; }}
@@ -182,9 +232,13 @@ td.indent {{ padding-left: 22px; }}
 <body>
 <div class="container">
 <h1>anybench report <span>v{VERSION}</span></h1>
-<p class="env">generated {esc(gen_at)} &middot; tasks={len(tasks)} runs={len(runs)} &middot; total wall time {total_time:.0f}s &middot; total cost ${total_cost:.2f}</p>
-<p class="summary"><b class="p">{n_pass} passed</b>, <b class="f">{n_fail} failed</b> &mdash; pass rate {n_pass/max(len(runs),1)*100:.0f}% (reward&ge;1.0 = F2P&#10003; かつ P2P&#10003;)</p>
+<p class="env">generated {esc(gen_at)} &middot; tasks={len(tasks)} runs={len(runs)}{f" ({n_excluded} excluded)" if n_excluded else ""} &middot; total wall time {total_time:.0f}s &middot; total cost ${total_cost:.2f}</p>
 
+<div class="hero">
+<h2>leaderboard <span>&mdash; judge score (0&ndash;1)、緑 = tests PASS / 赤 = FAIL &middot; score &middot; time &middot; cost</span></h2>
+<div class="chips">{"".join(chips)}</div>
+<div class="hero-cv" style="height: {hero_h}px"><canvas id="c-hero"></canvas></div>
+</div>
 
 <div class="card">
 <table class="results">
@@ -208,6 +262,7 @@ td.indent {{ padding-left: 22px; }}
 (function () {{
   if (typeof Chart === "undefined") return; // CDN不達時はテーブルのみで成立
   const D = {json.dumps(chart_data, ensure_ascii=False)};
+  const H = {json.dumps(hero_data, ensure_ascii=False)};
   const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const pal = dark ? D.palette_dark : D.palette_light;
   const ink = dark ? "#d0d7de" : "#24292f";
@@ -229,6 +284,40 @@ td.indent {{ padding-left: 22px; }}
       }}, opts || {{}})
     }});
   }}
+
+  // ファーストビュー: judge 降順の横棒リーダーボード
+  const passC = dark ? "#2ea043" : "#1a7f37";
+  const failC = dark ? "#e5534b" : "#cf222e";
+  new Chart(document.getElementById("c-hero"), {{
+    type: "bar",
+    data: {{ labels: H.labels, datasets: [{{ data: H.judge, backgroundColor: H.passed.map(p => p ? passC : failC), borderRadius: 3, maxBarThickness: 20 }}] }},
+    options: {{
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{ callbacks: {{ label: (c) => ` ${{H.ann[c.dataIndex]}}` }} }}
+      }},
+      scales: {{
+        // 右側の余白 (max 1.4) は注記テキスト用。目盛は 1.0 まで
+        x: {{ min: 0, max: 1.4, ticks: {{ stepSize: 0.25, callback: v => v <= 1 ? v : "" }},
+             grid: {{ color: c => (c.tick.value <= 1 ? grid : "transparent") }} }},
+        y: {{ grid: {{ display: false }}, ticks: {{ autoSkip: false, font: {{ size: 11 }} }} }}
+      }}
+    }},
+    plugins: [{{
+      afterDatasetsDraw(chart) {{
+        const ctx = chart.ctx;
+        chart.getDatasetMeta(0).data.forEach((el, i) => {{
+          ctx.save();
+          ctx.font = "600 10.5px ui-monospace, Menlo, monospace";
+          ctx.fillStyle = H.passed[i] ? ink : failC;
+          ctx.textAlign = "left"; ctx.textBaseline = "middle";
+          ctx.fillText(H.ann[i], el.x + 8, el.y);
+          ctx.restore();
+        }});
+      }}
+    }}]
+  }});
 
   // judge score bar + PASS/FAIL 注記
   new Chart(document.getElementById("c-judge"), {{
