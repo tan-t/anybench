@@ -32,8 +32,8 @@ total_time = sum(r["run"].get("duration_s") or 0 for r in runs)
 DIMS = ["functional_correctness", "root_cause", "completeness", "minimality", "regression_risk", "code_quality"]
 
 # 検証済みカテゴリカルパレット(先頭3スロットは all-pairs 検証済)
-PALETTE_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
-PALETTE_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
+PALETTE_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948", "#57606a", "#8b6f47"]
+PALETTE_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767", "#768390", "#a08560"]
 
 def dim_score(j, d):
     v = (j.get("dimensions") or {}).get(d)
